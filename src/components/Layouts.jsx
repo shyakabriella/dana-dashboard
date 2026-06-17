@@ -1,23 +1,17 @@
-import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Home,
-  Hotel,
-  Settings,
-  Utensils,
-  Calendar,
   Info,
-  Phone,
+  BedDouble,
+  Sparkles,
   LogOut,
   Menu,
   X,
   ChevronRight,
-  Loader2,
+  Award,
 } from "lucide-react";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001/api";
+import { useState } from "react";
 
 const navItems = [
   {
@@ -29,85 +23,39 @@ const navItems = [
   {
     to: "/admin/home",
     icon: Home,
-    label: "Home",
-  },
-  {
-    to: "/admin/room",
-    icon: Hotel,
-    label: "Rooms",
-  },
-  {
-    to: "/admin/services",
-    icon: Settings,
-    label: "Services",
-  },
-  {
-    to: "/admin/restaurant",
-    icon: Utensils,
-    label: "Restaurant",
-  },
-  {
-    to: "/admin/conference",
-    icon: Calendar,
-    label: "Conference",
+    label: "Home Page",
   },
   {
     to: "/admin/about",
     icon: Info,
-    label: "About",
-    badge: "Soon",
+    label: "About Page",
   },
   {
-    to: "/admin/contact",
-    icon: Phone,
-    label: "Contact",
-    badge: "Soon",
+    to: "/admin/room",
+    icon: BedDouble,
+    label: "Rooms Page",
+  },
+  {
+    to: "/admin/experiences",
+    icon: Sparkles,
+    label: "Experiences Page",
+  },
+  {
+    to: "/admin/footer",
+    icon: Award,
+    label: "Footer",
   },
 ];
 
-function getToken() {
-  return (
-    localStorage.getItem("token") ||
-    localStorage.getItem("auth_token") ||
-    localStorage.getItem("authToken")
-  );
-}
-
-function clearAuthStorage() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("auth_token");
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("user");
-  localStorage.removeItem("admin");
-}
-
 export default function Layouts() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const handleLogout = async () => {
-    try {
-      setLoggingOut(true);
-      const token = getToken();
-      if (token) {
-        await fetch(`${API_BASE_URL}/logout`, {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Logout API failed:", error);
-    } finally {
-      clearAuthStorage();
-      setLoggingOut(false);
-      navigate("/", { replace: true });
-    }
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("authToken");
+    navigate("/login");
   };
 
   return (
@@ -131,22 +79,21 @@ export default function Layouts() {
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
-        {/* Logo / Brand */}
+        {/* Brand */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-5">
           <button
             type="button"
             onClick={() => navigate("/admin")}
             className="group flex items-center gap-3 text-left"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-sm font-black text-white shadow-lg shadow-emerald-500/30 transition-transform duration-300 group-hover:scale-105">
-              MV
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-sm font-black text-white shadow-lg shadow-amber-500/30 transition-transform duration-300 group-hover:scale-105">
+              DH
             </div>
 
             <div>
               <h1 className="text-sm font-bold leading-tight text-white">
-                Mountain View
+                DANA HOTEL
               </h1>
-
               <p className="text-[11px] font-medium text-slate-400">
                 Admin Panel
               </p>
@@ -171,7 +118,6 @@ export default function Layouts() {
               icon={item.icon}
               label={item.label}
               end={item.end}
-              badge={item.badge}
               onClick={() => setSidebarOpen(false)}
             />
           ))}
@@ -182,18 +128,12 @@ export default function Layouts() {
           <button
             type="button"
             onClick={handleLogout}
-            disabled={loggingOut}
-            className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-70"
+            className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-red-500/10 hover:text-red-300"
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-slate-400 transition-all duration-300 group-hover:bg-red-500/10 group-hover:text-red-300">
-              {loggingOut ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <LogOut size={18} />
-              )}
+              <LogOut size={18} />
             </span>
-
-            {loggingOut ? "Signing out..." : "Sign Out"}
+            Sign Out
           </button>
         </div>
       </aside>
@@ -215,9 +155,8 @@ export default function Layouts() {
               <h2 className="text-sm font-semibold text-slate-900">
                 Welcome back, Admin
               </h2>
-
               <p className="hidden text-xs text-slate-500 sm:block">
-                Manage Mountain View Resort content from one place.
+                Manage DANA HOTEL content from one place.
               </p>
             </div>
           </div>
@@ -227,8 +166,7 @@ export default function Layouts() {
               <p className="text-xs font-semibold text-slate-700">Admin</p>
               <p className="text-[11px] text-slate-400">Online</p>
             </div>
-
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700 ring-4 ring-emerald-50">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-700 ring-4 ring-amber-50">
               A
             </div>
           </div>
@@ -243,7 +181,7 @@ export default function Layouts() {
   );
 }
 
-function SidebarLink({ to, icon: Icon, label, end = false, onClick, badge }) {
+function SidebarLink({ to, icon: Icon, label, end = false, onClick }) {
   return (
     <NavLink
       to={to}
@@ -252,7 +190,7 @@ function SidebarLink({ to, icon: Icon, label, end = false, onClick, badge }) {
       className={({ isActive }) =>
         `group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all duration-300 ${
           isActive
-            ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/10"
+            ? "bg-amber-500/15 text-amber-300 ring-1 ring-amber-400/10"
             : "text-slate-300 hover:translate-x-1 hover:bg-white/10 hover:text-white"
         }`
       }
@@ -262,27 +200,18 @@ function SidebarLink({ to, icon: Icon, label, end = false, onClick, badge }) {
           <span
             className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300 ${
               isActive
-                ? "bg-emerald-500/20 text-emerald-300"
+                ? "bg-amber-500/20 text-amber-300"
                 : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white"
             }`}
           >
             <Icon size={18} />
           </span>
-
-          <span className="flex-1 flex items-center justify-between">
-            <span>{label}</span>
-            {badge && (
-              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
-                {badge}
-              </span>
-            )}
-          </span>
-
+          <span className="flex-1">{label}</span>
           <ChevronRight
             size={15}
             className={`transition-all duration-300 ${
               isActive
-                ? "translate-x-0 text-emerald-300 opacity-100"
+                ? "translate-x-0 text-amber-300 opacity-100"
                 : "text-slate-500 opacity-0 group-hover:translate-x-1 group-hover:opacity-100"
             }`}
           />

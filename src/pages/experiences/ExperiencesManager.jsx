@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Sparkles, BedDouble, Phone, ChevronRight, X } from "lucide-react";
-import RoomHeroSection from "./sections/RoomHeroSection";
-import RoomSectionOne from "./sections/RoomSectionOne";
-import RoomSectionTwo from "./sections/RoomSectionTwo";
+import { Sparkles, Mountain, Compass, ChevronRight, X } from "lucide-react";
+import ExperiencesHeroSection from "./sections/ExperiencesHeroSection";
+import ExperiencesSectionOne from "./sections/ExperiencesSectionOne";
+import ExperiencesSectionTwo from "./sections/ExperiencesSectionTwo";
 
 const sections = [
   { 
@@ -11,27 +11,27 @@ const sections = [
     icon: Sparkles, 
     description: "Main hero banner with title, subtitle, destination and background image", 
     badge: "Hero", 
-    component: RoomHeroSection 
+    component: ExperiencesHeroSection 
   },
   { 
     id: "section1", 
-    label: "Section 1 - Six Ways to Stay", 
-    icon: BedDouble, 
-    description: "Manage room accommodations, prices, sizes, and images", 
+    label: "Section 1 - Six Ways to Remember", 
+    icon: Mountain, 
+    description: "Manage experiences cards with images and descriptions", 
     badge: "1", 
-    component: RoomSectionOne 
+    component: ExperiencesSectionOne 
   },
   { 
     id: "section2", 
-    label: "Section 2 - Need Help Choosing?", 
-    icon: Phone, 
-    description: "Call to action section with concierge button", 
+    label: "Section 2 - Begin Your Story", 
+    icon: Compass, 
+    description: "Call to action section with two buttons", 
     badge: "2", 
-    component: RoomSectionTwo 
+    component: ExperiencesSectionTwo 
   },
 ];
 
-export default function RoomManager() {
+export default function ExperiencesManager() {
   const [selectedSection, setSelectedSection] = useState(null);
 
   if (selectedSection) {
@@ -68,7 +68,7 @@ export default function RoomManager() {
     <div className="space-y-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Rooms Page Sections</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Experiences Page Sections</h1>
           <p className="mt-1 text-sm text-slate-500">
             Click on any section card to edit its content
           </p>

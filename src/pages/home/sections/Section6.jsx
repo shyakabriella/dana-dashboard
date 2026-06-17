@@ -1,201 +1,242 @@
 import { useState, useEffect } from "react";
-import { Save, RotateCcw, Check, AlertCircle, Upload, Trash2, Image as ImageIcon } from "lucide-react";
+import {
+  Save,
+  RotateCcw,
+  Check,
+  AlertCircle,
+  Plus,
+  Trash2,
+  Edit2,
+} from "lucide-react";
 
-const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001/api").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
 const APP_URL = API_URL.replace(/\/api$/, "");
-const STORAGE_URL = (import.meta.env.VITE_STORAGE_URL || `${APP_URL}/storage`).replace(/\/$/, "");
 
-const getImageUrl = (path) => {
-  if (!path || typeof path !== 'string') return null;
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  if (path.startsWith("/storage/")) return `${APP_URL}${path}`;
-  if (path.startsWith("storage/")) return `${APP_URL}/${path}`;
-  return `${STORAGE_URL}/${path}`;
+const getToken = () => {
+  return localStorage.getItem("token") || localStorage.getItem("auth_token");
 };
 
-const apiRequest = async (url, method = "GET", body = null, token = null, isFormData = false) => {
-  const options = { method, headers: { Accept: "application/json" } };
-  if (token) options.headers.Authorization = `Bearer ${token}`;
-  if (body) {
-    if (isFormData) options.body = body;
-    else {
-      options.headers["Content-Type"] = "application/json";
-      options.body = JSON.stringify(body);
-    }
-  }
-  const response = await fetch(`${API_URL}${url}`, options);
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`HTTP ${response.status}: ${error}`);
-  }
-  return await response.json();
-};
+export default function Section7({ data, onSave }) {
+  const [sectionData, setSectionData] = useState({
+    id: null,
+    title: "— GUEST WORDS",
+    subtitle: "Quiet praise, gratefully received.",
+    testimonials: [
+      {
+        text: "The most considered stay we've had in years. Every detail felt intentional — and the view at dawn is unforgettable.",
+        name: "Eleanor Vance",
+        location: "London",
+      },
+      {
+        text: "Quiet, refined, and warm. Hilltop reminded us why we travel in the first place.",
+        name: "Marc Dubois",
+        location: "Paris",
+      },
+      {
+        text: "From the welcome tea to the turndown ritual, a masterclass in hospitality.",
+        name: "Aiko Tanaka",
+        location: "Kyoto",
+      },
+    ],
+  });
 
-export default function Section6() {
-  const [sectionId, setSectionId] = useState(null);
-  const [title, setTitle] = useState("We're Most Recommended Hotel");
-  const [backgroundImage, setBackgroundImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
-  const [token, setToken] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingField, setEditingField] = useState(null);
+  const [editValue, setEditValue] = useState("");
+  const [newTestimonial, setNewTestimonial] = useState({
+    text: "",
+    name: "",
+    location: "",
+  });
+  const [showAddForm, setShowAddForm] = useState(false);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token") || localStorage.getItem("auth_token");
-    if (storedToken) {
-      setToken(storedToken);
-      fetchData();
-    } else {
-      setError("Please login first");
-      setLoading(false);
-    }
+    fetchSectionData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchSectionData = async () => {
+    setLoading(true);
     try {
-      const result = await apiRequest("/home-section6", "GET");
-      console.log("Fetched section 6 data:", result);
-      
-      if (result.success && result.data) {
-        setSectionId(result.data.id || null);
-        setTitle(result.data.title || "We're Most Recommended Hotel");
-        setBackgroundImage(result.data.background_image);
-        setImagePreview(result.data.background_image ? getImageUrl(result.data.background_image) : null);
+      const token = getToken();
+      const response = await fetch(`${API_URL}/dana/section-seven`, {
+        headers: {
+          Accept: "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+      const result = await response.json();
+      console.log("Section Seven API Response:", result);
+
+      if (result.success && result.data && result.data.length > 0) {
+        const section = result.data[0];
+        setSectionData({
+          id: section.id,
+          title: section.title || "— GUEST WORDS",
+          subtitle: section.subtitle || "Quiet praise, gratefully received.",
+          testimonials: section.testimonials || [],
+        });
+        setHasChanges(false);
       }
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("Error fetching section seven:", err);
+      setError("Failed to load section data");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleImageSelect = (file) => {
-    if (!file) return;
-
-    const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"];
-    if (!validTypes.includes(file.type)) {
-      setError("Please select a valid image");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image size must be less than 5MB");
-      return;
-    }
-
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-    setImageFile(file);
+  const markChanges = () => {
     setHasChanges(true);
     setSaved(false);
     setError(null);
   };
 
-  const removeImage = () => {
-    setImagePreview(null);
-    setImageFile(null);
-    setBackgroundImage(null);
-    setHasChanges(true);
-    setSaved(false);
+  const updateField = (field, value) => {
+    setSectionData(prev => ({ ...prev, [field]: value }));
+    markChanges();
   };
 
-  const saveAll = async () => {
+  const updateTestimonial = (index, field, value) => {
+    const newTestimonials = [...sectionData.testimonials];
+    newTestimonials[index] = { ...newTestimonials[index], [field]: value };
+    setSectionData(prev => ({ ...prev, testimonials: newTestimonials }));
+    markChanges();
+  };
+
+  const addTestimonial = () => {
+    if (!newTestimonial.text.trim() || !newTestimonial.name.trim() || !newTestimonial.location.trim()) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    setSectionData(prev => ({
+      ...prev,
+      testimonials: [...prev.testimonials, { ...newTestimonial }],
+    }));
+    setNewTestimonial({ text: "", name: "", location: "" });
+    setShowAddForm(false);
+    markChanges();
+  };
+
+  const removeTestimonial = (index) => {
+    const newTestimonials = [...sectionData.testimonials];
+    newTestimonials.splice(index, 1);
+    setSectionData(prev => ({ ...prev, testimonials: newTestimonials }));
+    markChanges();
+  };
+
+  const startEditing = (index, field, currentValue) => {
+    setEditingIndex(index);
+    setEditingField(field);
+    setEditValue(currentValue);
+  };
+
+  const saveEdit = () => {
+    if (editValue !== undefined && editValue !== null) {
+      updateTestimonial(editingIndex, editingField, editValue);
+    }
+    setEditingIndex(null);
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  const cancelEdit = () => {
+    setEditingIndex(null);
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  };
+
+  const saveToBackend = async () => {
     setSaving(true);
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("title", title);
-      if (imageFile) {
-        formData.append("image", imageFile);
-      } else if (backgroundImage) {
-        formData.append("background_image", backgroundImage);
+      const token = getToken();
+      if (!token) {
+        throw new Error("Please login first");
       }
 
-      let result;
-      if (sectionId) {
-        formData.append("_method", "PUT");
-        result = await apiRequest(`/admin/home-section6/${sectionId}`, "POST", formData, token, true);
+      const payload = {
+        title: sectionData.title,
+        subtitle: sectionData.subtitle,
+        testimonials: sectionData.testimonials,
+      };
+
+      let url, method;
+      if (sectionData.id) {
+        url = `${API_URL}/dana/section-seven/${sectionData.id}`;
+        method = "PUT";
       } else {
-        result = await apiRequest("/admin/home-section6", "POST", formData, token, true);
+        url = `${API_URL}/dana/section-seven`;
+        method = "POST";
       }
-      
+
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+      console.log("Save response:", result);
+
+      if (!response.ok) {
+        if (result.errors) {
+          setError(JSON.stringify(result.errors, null, 2));
+        } else {
+          setError(result.message || "Error saving section");
+        }
+        return;
+      }
+
       if (result.success) {
         setHasChanges(false);
         setSaved(true);
-        setImageFile(null);
         setTimeout(() => setSaved(false), 3000);
-        await fetchData();
+        await fetchSectionData();
+        if (onSave) {
+          onSave(result.data);
+        }
+      } else {
+        setError(result.message || "Error saving section");
       }
     } catch (err) {
       console.error("Save error:", err);
-      setError("Failed to save changes: " + err.message);
+      setError(err.message || "Failed to save section");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!sectionId) {
-      setError("No section to delete");
-      return;
-    }
-    
-    if (!confirm("Are you sure you want to delete this section? This action cannot be undone.")) {
-      return;
-    }
-    
-    setDeleting(true);
-    setError(null);
-
-    try {
-      const result = await apiRequest(`/admin/home-section6/${sectionId}`, "DELETE", null, token);
-      
-      if (result.success) {
-        setSectionId(null);
-        setTitle("We're Most Recommended Hotel");
-        setBackgroundImage(null);
-        setImagePreview(null);
-        setImageFile(null);
-        setHasChanges(false);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      }
-    } catch (err) {
-      console.error("Delete error:", err);
-      setError("Failed to delete section: " + err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const handleReset = () => {
-    fetchData();
-    setHasChanges(false);
+    fetchSectionData();
     setError(null);
-    setImageFile(null);
+    setEditingIndex(null);
+    setShowAddForm(false);
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!token) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
-          <h2 className="text-xl font-semibold text-slate-900">Authentication Required</h2>
-          <p className="mt-2 text-slate-500">Please login to manage section 6.</p>
-        </div>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
       </div>
     );
   }
@@ -203,168 +244,274 @@ export default function Section6() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Section 6 - Recommended Hotel Banner</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage the background image and text for the recommendation banner</p>
+            <h2 className="text-xl font-bold text-gray-900">Section 7 - Guest Testimonials</h2>
+            <p className="text-sm text-gray-500">Manage guest testimonials and reviews</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex gap-3">
             {saved && (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                <Check size={16} />
-                {sectionId ? "Updated successfully" : "Created successfully"}
+              <span className="flex items-center gap-1.5 text-sm font-medium text-amber-600">
+                <Check size={16} /> Saved
               </span>
             )}
             <button
               onClick={handleReset}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-gray-50"
             >
-              <RotateCcw size={15} />
-              Reset
+              <RotateCcw size={15} /> Reset
             </button>
-            {sectionId && (
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
-              >
-                {deleting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-500 border-t-transparent" /> : <Trash2 size={15} />}
-                Delete Section
-              </button>
-            )}
             <button
-              onClick={saveAll}
+              onClick={saveToBackend}
               disabled={!hasChanges || saving}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all ${
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all ${
                 hasChanges && !saving
-                  ? "bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-sm hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.98]"
-                  : "cursor-not-allowed bg-slate-300"
+                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 cursor-pointer"
+                  : "cursor-not-allowed bg-gray-300"
               }`}
             >
               {saving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Save size={15} />}
-              Save Changes
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2">
-          <AlertCircle size={16} /> {error}
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 whitespace-pre-wrap">
+          <AlertCircle size={16} className="inline mr-2" /> {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Side - Form */}
-        <div className="space-y-5">
-          {/* Title Input */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-5 text-lg font-semibold text-slate-900">Banner Text</h2>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Title / Message</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  setHasChanges(true);
-                  setSaved(false);
-                }}
-                className="w-full text-xl font-bold text-slate-900 border rounded-xl px-4 py-3 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none"
-                placeholder="We're Most Recommended Hotel"
-              />
-            </div>
+      {/* Title and Subtitle */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Section Title</label>
+            <input
+              type="text"
+              value={sectionData.title}
+              onChange={(e) => updateField("title", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+            />
           </div>
-
-          {/* Background Image Upload */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-5 text-lg font-semibold text-slate-900">Background Image</h2>
-            <div className="border rounded-xl p-4 bg-gray-50">
-              {imagePreview ? (
-                <div className="relative">
-                  <img
-                    src={imagePreview}
-                    alt="Background preview"
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                  <button
-                    onClick={removeImage}
-                    className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ) : (
-                <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <ImageIcon size={48} className="text-gray-300" />
-                </div>
-              )}
-              <label className="cursor-pointer block w-full mt-3">
-                <div className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-4 py-2 text-sm font-medium hover:from-emerald-600 hover:to-emerald-700">
-                  <Upload size={14} />
-                  Select Image
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageSelect(e.target.files[0])}
-                  className="hidden"
-                />
-              </label>
-              <p className="text-xs text-gray-500 mt-3">
-                Recommended size: 1920x600px. Max 5MB. Supports JPG, PNG, WebP, GIF.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side - Live Preview */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-5 text-lg font-semibold text-slate-900">Live Preview</h2>
-          
-          <div className="relative rounded-xl overflow-hidden h-64 bg-gray-800">
-            {imagePreview ? (
-              <>
-                <img
-                  src={imagePreview}
-                  alt="Background"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white text-center px-4">
-                    {title || "We're Most Recommended Hotel"}
-                  </h2>
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-emerald-700 to-emerald-900">
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white text-center px-4">
-                  {title || "We're Most Recommended Hotel"}
-                </h2>
-              </div>
-            )}
+          <div>
+            <label className="mb-1 block text-sm font-medium">Section Subtitle</label>
+            <input
+              type="text"
+              value={sectionData.subtitle}
+              onChange={(e) => updateField("subtitle", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+            />
           </div>
         </div>
       </div>
 
+      {/* Add Testimonial Button */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        {!showAddForm ? (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition"
+          >
+            <Plus size={16} />
+            Add New Testimonial
+          </button>
+        ) : (
+          <div className="border rounded-xl p-4 bg-amber-50">
+            <h3 className="font-semibold mb-3">Add New Testimonial</h3>
+            <div className="space-y-3">
+              <textarea
+                placeholder="Testimonial text..."
+                value={newTestimonial.text}
+                onChange={(e) => setNewTestimonial(prev => ({ ...prev, text: e.target.value }))}
+                rows={3}
+                className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+              />
+              <input
+                type="text"
+                placeholder="Guest name"
+                value={newTestimonial.name}
+                onChange={(e) => setNewTestimonial(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+              />
+              <input
+                type="text"
+                placeholder="Location"
+                value={newTestimonial.location}
+                onChange={(e) => setNewTestimonial(prev => ({ ...prev, location: e.target.value }))}
+                className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={addTestimonial}
+                  className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setNewTestimonial({ text: "", name: "", location: "" });
+                  }}
+                  className="border px-4 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-gray-500 mt-3">
+          Total testimonials: {sectionData.testimonials.length}
+        </p>
+      </div>
+
+      {/* Testimonials List */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold">Testimonials ({sectionData.testimonials.length})</h3>
+        
+        {sectionData.testimonials.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            No testimonials yet. Click "Add New Testimonial" to create one.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {sectionData.testimonials.map((testimonial, index) => (
+              <div key={index} className="border rounded-xl p-4 bg-gray-50">
+                {/* Quote */}
+                <div className="mb-3">
+                  <label className="text-xs text-gray-500 font-medium">Quote</label>
+                  {editingIndex === index && editingField === "text" ? (
+                    <textarea
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={saveEdit}
+                      onKeyDown={handleKeyPress}
+                      rows={3}
+                      className="w-full text-gray-700 border rounded px-2 py-1 mt-1 focus:border-amber-400 focus:outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="flex items-start justify-between mt-1 gap-2">
+                      <p className="text-gray-700 italic flex-1">"{testimonial.text}"</p>
+                      <button
+                        onClick={() => startEditing(index, "text", testimonial.text)}
+                        className="text-amber-500 hover:text-amber-600 shrink-0"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Name */}
+                <div className="mb-3">
+                  <label className="text-xs text-gray-500 font-medium">Name</label>
+                  {editingIndex === index && editingField === "name" ? (
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={saveEdit}
+                      onKeyDown={handleKeyPress}
+                      className="w-full border rounded px-2 py-1 mt-1 focus:border-amber-400 focus:outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="font-semibold text-gray-900">{testimonial.name}</p>
+                      <button
+                        onClick={() => startEditing(index, "name", testimonial.name)}
+                        className="text-amber-500 hover:text-amber-600"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Location */}
+                <div className="mb-3">
+                  <label className="text-xs text-gray-500 font-medium">Location</label>
+                  {editingIndex === index && editingField === "location" ? (
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={saveEdit}
+                      onKeyDown={handleKeyPress}
+                      className="w-full border rounded px-2 py-1 mt-1 focus:border-amber-400 focus:outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-gray-500 text-sm">{testimonial.location}</p>
+                      <button
+                        onClick={() => startEditing(index, "location", testimonial.location)}
+                        className="text-amber-500 hover:text-amber-600"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Delete Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => removeTestimonial(index)}
+                    className="text-red-500 hover:text-red-600 text-sm flex items-center gap-1"
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Live Preview */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold">Live Preview</h3>
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">{sectionData.title}</h2>
+          <p className="text-amber-600 mt-2">{sectionData.subtitle}</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sectionData.testimonials.slice(0, 6).map((testimonial, index) => (
+            <div key={index} className="bg-gray-50 p-6 rounded-xl">
+              <p className="text-gray-600 italic mb-4">"{testimonial.text}"</p>
+              <p className="font-semibold text-gray-900">{testimonial.name}</p>
+              <p className="text-sm text-gray-500">{testimonial.location}</p>
+            </div>
+          ))}
+        </div>
+        {sectionData.testimonials.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            No testimonials to preview. Add testimonials above.
+          </div>
+        )}
+      </div>
+
       {/* Tips */}
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-        <div className="flex items-start gap-3">
-          <AlertCircle size={16} className="mt-0.5 shrink-0 text-blue-500" />
+      <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+        <div className="flex gap-3">
+          <AlertCircle size={16} className="text-amber-600" />
           <div>
-            <p className="text-sm font-medium text-blue-800">Tips</p>
-            <ul className="mt-1 space-y-1 text-xs text-blue-600">
-              <li>• Upload a high-quality background image (1920x600px recommended)</li>
-              <li>• The text will appear centered over the image with a dark overlay</li>
-              <li>• Edit the text to change what visitors see</li>
-              <li>• If no image is uploaded, a gradient background will be shown</li>
+            <p className="text-sm font-medium text-amber-800">Tips</p>
+            <ul className="mt-1 space-y-1 text-xs text-amber-600">
+              <li>• Click "Add New Testimonial" to add a new guest review</li>
+              <li>• Click the Edit icon next to any field to edit it</li>
+              <li>• Press Enter to save, Escape to cancel editing</li>
+              <li>• Click the Delete button to remove a testimonial</li>
               <li>• Click "Save Changes" to store everything in the database</li>
-              <li>• Use "Delete Section" to remove the entire section</li>
             </ul>
           </div>
         </div>
       </div>
     </div>
   );
-}   
+}

@@ -4,11 +4,9 @@ import Dashboard from "../pages/Dashboard";
 import Login from "../pages/Login";
 import HomepageManager from "../pages/home/HomepageManager";
 import RoomManager from "../pages/room/RoomManager";
-import ServicesManager from "../pages/services/ServicesManager";
-import ConferenceManager from "../pages/conference/ConferenceManager";
-import RestaurantManager from "../pages/restaurant/RestaurantManager";
-import About from "../pages/About";
-import Contact from "../pages/Contact";
+import ExperiencesManager from "../pages/experiences/ExperiencesManager";
+import AboutManager from "../pages/about/AboutManager";
+import FooterManager from "../pages/FooterManager";
 
 export default function AppRoutes() {
   return (
@@ -19,11 +17,9 @@ export default function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="home" element={<HomepageManager />} />
         <Route path="room" element={<RoomManager />} />
-        <Route path="services" element={<ServicesManager />} />
-        <Route path="conference" element={<ConferenceManager />} />
-        <Route path="restaurant" element={<RestaurantManager />} />
-        <Route path="about" element={<About />} />
-        <Route path="contact" element={<Contact />} />
+        <Route path="experiences" element={<ExperiencesManager />} />
+        <Route path="about" element={<AboutManager />} />
+        <Route path="footer" element={<FooterManager />} />
       </Route>
     </Routes>
   );

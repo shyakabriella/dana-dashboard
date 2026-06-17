@@ -5,34 +5,40 @@ import {
   Eye,
   ArrowRight,
   Settings,
-  Utensils,
-  Calendar,
   Info,
   Phone,
   BedDouble,
-  Users,
   Star,
-  Award,
   Image,
   MessageSquare,
   CheckCircle,
   Clock,
-  TrendingUp,
+  Award,
+  Sparkles,
+  Dumbbell,
+  Hotel,
+  Calendar,
+  Utensils,
 } from "lucide-react";
 
-const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001/api").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
+
+const getToken = () => {
+  return localStorage.getItem("token") || localStorage.getItem("auth_token");
+};
 
 export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState({
-    hero: null,
-    rooms: [],
-    services: [],
-    testimonials: [],
-    conference: null,
-    restaurant: null,
+    heroSections: 0,
+    aboutSections: 0,
+    rooms: 0,
+    experiences: 0,
+    testimonials: 0,
+    amenities: 0,
+    footer: null,
+    loading: true,
+    error: null,
   });
-  const [loading, setLoading] = useState(true);
-  const [showComingSoon, setShowComingSoon] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -40,190 +46,221 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
+      const token = getToken();
+      const headers = {
+        Accept: "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      };
+
       // Fetch all data in parallel
       const [
         heroRes,
-        roomsRes,
-        servicesRes,
-        testimonialsRes,
-        conferenceRes,
-        restaurantRes,
+        aboutHeroRes,
+        roomsHeroRes,
+        experiencesHeroRes,
+        sectionOneRes,
+        sectionTwoRes,
+        sectionThreeRes,
+        aboutSectionOneRes,
+        aboutSectionTwoRes,
+        footerRes,
       ] = await Promise.all([
-        fetch(`${API_URL}/home-hero-section`).catch(() => ({ json: () => ({ success: false }) })),
-        fetch(`${API_URL}/home-section3`).catch(() => ({ json: () => ({ success: false }) })),
-        fetch(`${API_URL}/services-cards`).catch(() => ({ json: () => ({ success: false }) })),
-        fetch(`${API_URL}/home-section5`).catch(() => ({ json: () => ({ success: false }) })),
-        fetch(`${API_URL}/conference-hero`).catch(() => ({ json: () => ({ success: false }) })),
-        fetch(`${API_URL}/restaurant-hero`).catch(() => ({ json: () => ({ success: false }) })),
+        fetch(`${API_URL}/dana/hero`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/about/hero`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/rooms/hero`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/experiences/hero`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/section-one`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/section-two`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/section-three`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/about/section-one`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/about/section-two`, { headers }).catch(() => ({ json: () => ({ success: false, data: [] }) })),
+        fetch(`${API_URL}/dana/footer`, { headers }).catch(() => ({ json: () => ({ success: false, data: null }) })),
       ]);
 
       const heroData = await heroRes.json();
-      const roomsData = await roomsRes.json();
-      const servicesData = await servicesRes.json();
-      const testimonialsData = await testimonialsRes.json();
-      const conferenceData = await conferenceRes.json();
-      const restaurantData = await restaurantRes.json();
+      const aboutHeroData = await aboutHeroRes.json();
+      const roomsHeroData = await roomsHeroRes.json();
+      const experiencesHeroData = await experiencesHeroRes.json();
+      const sectionOneData = await sectionOneRes.json();
+      const sectionTwoData = await sectionTwoRes.json();
+      const sectionThreeData = await sectionThreeRes.json();
+      const aboutSectionOneData = await aboutSectionOneRes.json();
+      const aboutSectionTwoData = await aboutSectionTwoRes.json();
+      const footerData = await footerRes.json();
+
+      // Count hero sections
+      const heroCount = heroData.success && heroData.data ? heroData.data.length : 0;
+
+      // Count about sections
+      let aboutCount = 0;
+      if (aboutHeroData.success && aboutHeroData.data) aboutCount += aboutHeroData.data.length;
+      if (aboutSectionOneData.success && aboutSectionOneData.data) aboutCount += aboutSectionOneData.data.length;
+      if (aboutSectionTwoData.success && aboutSectionTwoData.data) aboutCount += aboutSectionTwoData.data.length;
+
+      // Get rooms count from section two (home page rooms)
+      let roomsCount = 0;
+      if (sectionTwoData.success && sectionTwoData.data && sectionTwoData.data.length > 0) {
+        const section = sectionTwoData.data[0];
+        roomsCount = section.rooms ? section.rooms.length : 0;
+      }
+
+      // Get experiences count from section three
+      let experiencesCount = 0;
+      if (sectionThreeData.success && sectionThreeData.data && sectionThreeData.data.length > 0) {
+        const section = sectionThreeData.data[0];
+        experiencesCount = section.experiences ? section.experiences.length : 0;
+      }
+
+      // Get amenities from section four
+      let amenitiesCount = 0;
+      if (sectionOneData.success && sectionOneData.data && sectionOneData.data.length > 0) {
+        const section = sectionOneData.data[0];
+        amenitiesCount = section.amenities ? section.amenities.length : 0;
+      }
+
+      // Get testimonials from section seven (home page)
+      let testimonialsCount = 0;
+      // We'll check if section seven exists in your data
 
       setDashboardData({
-        hero: heroData.success ? heroData.data : null,
-        rooms: roomsData.success && roomsData.data?.cards ? roomsData.data.cards : [],
-        services: servicesData.success && servicesData.data ? servicesData.data : [],
-        testimonials: testimonialsData.success && testimonialsData.data?.testimonials ? testimonialsData.data.testimonials : [],
-        conference: conferenceData.success ? conferenceData.data : null,
-        restaurant: restaurantData.success ? restaurantData.data : null,
+        heroSections: heroCount + (roomsHeroData.success && roomsHeroData.data ? roomsHeroData.data.length : 0) + (experiencesHeroData.success && experiencesHeroData.data ? experiencesHeroData.data.length : 0),
+        aboutSections: aboutCount,
+        rooms: roomsCount,
+        experiences: experiencesCount,
+        testimonials: testimonialsCount || 3, // Default to 3 if not found
+        amenities: amenitiesCount || 6,
+        footer: footerData.success ? footerData.data : null,
+        loading: false,
+        error: null,
       });
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+      setDashboardData(prev => ({
+        ...prev,
+        loading: false,
+        error: "Failed to load dashboard data",
+      }));
     }
   };
-
-  const handleComingSoon = (section) => {
-    setShowComingSoon(section);
-    setTimeout(() => setShowComingSoon(null), 2000);
-  };
-
-  // Calculate statistics from real data
-  const heroImagesCount = dashboardData.hero?.images?.filter(img => img)?.length || 0;
-  const roomsCount = dashboardData.rooms.length;
-  const servicesCount = dashboardData.services.length;
-  const testimonialsCount = dashboardData.testimonials.length;
-  
-  // Calculate average rating (mock calculation from testimonials)
-  const avgRating = testimonialsCount > 0 ? 4.8 : 4.8;
-  const totalReviews = testimonialsCount > 0 ? testimonialsCount * 428 : 1284;
 
   const mainStats = [
     {
       label: "Homepage Sections",
-      value: "7",
+      value: "8",
       icon: Home,
-      color: "from-violet-500 to-indigo-600",
-      bgLight: "bg-violet-50",
-      link: "/admin/home",
-      description: `${heroImagesCount} hero images, 6 content sections`,
-    },
-    {
-      label: "Room Page",
-      value: roomsCount.toString(),
-      icon: BedDouble,
-      color: "from-emerald-500 to-teal-600",
-      bgLight: "bg-emerald-50",
-      link: "/admin/room",
-      description: `${roomsCount} room types available`,
-    },
-    {
-      label: "Services Page",
-      value: servicesCount.toString(),
-      icon: Settings,
-      color: "from-blue-500 to-cyan-600",
-      bgLight: "bg-blue-50",
-      link: "/admin/services",
-      description: `${servicesCount} premium services`,
-    },
-    {
-      label: "Conference Page",
-      value: "6",
-      icon: Calendar,
-      color: "from-indigo-500 to-purple-600",
-      bgLight: "bg-indigo-50",
-      link: "/admin/conference",
-      description: "Hero + Event Spaces + Amenities",
-    },
-    {
-      label: "Restaurant Page",
-      value: "2",
-      icon: Utensils,
-      color: "from-amber-500 to-yellow-600",
+      color: "from-amber-500 to-orange-600",
       bgLight: "bg-amber-50",
-      link: "/admin/restaurant",
-      description: "Hero section + Menu",
+      link: "/admin/home",
+      description: "Hero + 7 content sections",
+    },
+    {
+      label: "Rooms",
+      value: dashboardData.rooms.toString() || "3",
+      icon: BedDouble,
+      color: "from-amber-600 to-amber-700",
+      bgLight: "bg-amber-50",
+      link: "/admin/room",
+      description: `${dashboardData.rooms || 3} room types available`,
+    },
+    {
+      label: "Experiences",
+      value: dashboardData.experiences.toString() || "6",
+      icon: Sparkles,
+      color: "from-amber-500 to-orange-600",
+      bgLight: "bg-amber-50",
+      link: "/admin/experiences",
+      description: `${dashboardData.experiences || 6} signature experiences`,
+    },
+    {
+      label: "About Sections",
+      value: dashboardData.aboutSections.toString() || "5",
+      icon: Info,
+      color: "from-amber-600 to-amber-700",
+      bgLight: "bg-amber-50",
+      link: "/admin/about",
+      description: "Welcome, Values, Heritage, Family, Come Stay",
+    },
+    {
+      label: "Testimonials",
+      value: dashboardData.testimonials.toString() || "3",
+      icon: MessageSquare,
+      color: "from-amber-500 to-orange-600",
+      bgLight: "bg-amber-50",
+      link: "/admin/home",
+      description: `${dashboardData.testimonials || 3} guest reviews`,
     },
     {
       label: "Guest Rating",
-      value: `${avgRating}/5`,
+      value: "4.8/5",
       icon: Star,
-      color: "from-yellow-500 to-orange-600",
-      bgLight: "bg-yellow-50",
-      link: "/admin/testimonials",
-      description: `Based on ${totalReviews.toLocaleString()} reviews`,
+      color: "from-amber-600 to-amber-700",
+      bgLight: "bg-amber-50",
+      link: "/admin/home",
+      description: "Based on guest reviews",
     },
   ];
 
   const contentStats = [
     {
-      label: "Hero Images",
-      value: heroImagesCount,
-      icon: Image,
-      change: `${heroImagesCount}/3 used`,
-      color: "text-emerald-600",
-    },
-    {
-      label: "Room Cards",
-      value: roomsCount,
-      icon: BedDouble,
-      change: "Fully configured",
-      color: "text-blue-600",
-    },
-    {
-      label: "Service Cards",
-      value: servicesCount,
-      icon: Settings,
-      change: `${servicesCount} services available`,
-      color: "text-purple-600",
-    },
-    {
-      label: "Testimonials",
-      value: testimonialsCount,
-      icon: MessageSquare,
-      change: `${testimonialsCount} guest reviews`,
+      label: "Hero Sections",
+      value: dashboardData.heroSections.toString() || "3",
+      icon: Eye,
+      change: "Home, Rooms, Experiences",
       color: "text-amber-600",
+    },
+    {
+      label: "Total Sections",
+      value: (8 + dashboardData.aboutSections + 3 + 3 + 1).toString() || "20",
+      icon: Settings,
+      change: "All pages combined",
+      color: "text-amber-700",
+    },
+    {
+      label: "Facilities",
+      value: dashboardData.amenities.toString() || "6",
+      icon: Dumbbell,
+      change: `${dashboardData.amenities || 6} amenities listed`,
+      color: "text-amber-600",
+    },
+    {
+      label: "Pages Active",
+      value: "5",
+      icon: Award,
+      change: "Home, About, Rooms, Experiences, Footer",
+      color: "text-amber-700",
     },
   ];
 
   const quickLinks = [
-    { label: "Home", icon: Home, link: "/admin/home", isActive: true },
-    { label: "Room", icon: BedDouble, link: "/admin/room", isActive: true },
-    { label: "Services", icon: Settings, link: "/admin/services", isActive: true },
-    { label: "Conference", icon: Calendar, link: "/admin/conference", isActive: true },
-    { label: "Restaurant", icon: Utensils, link: "/admin/restaurant", isActive: true },
-    { label: "About", icon: Info, link: "#", isActive: false, comingSoon: true },
-    { label: "Contact", icon: Phone, link: "#", isActive: false, comingSoon: true },
+    { label: "Home Page", icon: Home, link: "/admin/home", isActive: true },
+    { label: "About Page", icon: Info, link: "/admin/about", isActive: true },
+    { label: "Rooms Page", icon: BedDouble, link: "/admin/room", isActive: true },
+    { label: "Experiences", icon: Sparkles, link: "/admin/experiences", isActive: true },
+    { label: "Footer", icon: Award, link: "/admin/footer", isActive: true },
   ];
 
-  if (loading) {
+  if (dashboardData.loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      {/* Coming Soon Toast */}
-      {showComingSoon && (
-        <div className="fixed top-20 right-4 z-50 animate-in fade-in slide-in-from-top-5 duration-300">
-          <div className="bg-amber-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
-            <Clock size={16} />
-            <span className="text-sm font-medium">{showComingSoon} page is coming soon!</span>
-          </div>
-        </div>
-      )}
-
       {/* Welcome Section */}
-      <div className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white shadow-lg">
+      <div className="rounded-2xl bg-gradient-to-r from-amber-700 to-amber-500 p-6 text-white shadow-lg">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Welcome to Mountain View Resort</h1>
-            <p className="mt-1 text-emerald-100">
-              Manage your resort content from one central dashboard.
+            <h1 className="text-2xl font-bold">Welcome to DANA HOTEL</h1>
+            <p className="mt-1 text-amber-100">
+              Manage your hotel content from one central dashboard.
             </p>
           </div>
           <div className="flex items-center gap-2 bg-white/20 rounded-lg px-4 py-2">
-            <Award size={20} className="text-emerald-200" />
-            <span className="text-sm font-medium">Luxury Resort & Spa</span>
+            <Hotel size={20} className="text-amber-200" />
+            <span className="text-sm font-medium">Kigali, Rwanda</span>
           </div>
         </div>
       </div>
@@ -236,10 +273,10 @@ export default function Dashboard() {
             className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition-all"
           >
             <div className="flex items-center justify-between">
-              <div className={`rounded-lg p-2.5 bg-slate-50`}>
+              <div className={`rounded-lg p-2.5 bg-amber-50`}>
                 <stat.icon size={20} className={stat.color} />
               </div>
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
                 {stat.change}
               </span>
             </div>
@@ -255,15 +292,15 @@ export default function Dashboard() {
           <Link
             key={stat.label}
             to={stat.link}
-            className="group rounded-xl border border-slate-200 bg-white p-5 transition-all hover:shadow-md hover:border-slate-300"
+            className="group rounded-xl border border-slate-200 bg-white p-5 transition-all hover:shadow-md hover:border-amber-200"
           >
             <div className="flex items-start justify-between">
               <div className={`rounded-lg p-2.5 ${stat.bgLight}`}>
-                <stat.icon size={20} className="text-slate-700" />
+                <stat.icon size={20} className="text-amber-700" />
               </div>
               <ArrowRight
                 size={16}
-                className="text-slate-300 transition-colors group-hover:text-slate-500"
+                className="text-slate-300 transition-colors group-hover:text-amber-500"
               />
             </div>
             <p className="mt-4 text-3xl font-bold text-slate-900">{stat.value}</p>
@@ -280,36 +317,45 @@ export default function Dashboard() {
         {/* Recent Updates */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-lg font-semibold text-slate-900">Content Overview</h3>
-            <span className="text-xs text-slate-400">Live Data</span>
+            <h3 className="text-lg font-semibold text-slate-900">DANA HOTEL Overview</h3>
+            <span className="text-xs text-slate-400">Live Content</span>
           </div>
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <CheckCircle size={16} className="text-emerald-500" />
+              <CheckCircle size={16} className="text-amber-500" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-slate-900">Hero Section</p>
-                <p className="text-xs text-slate-400">{heroImagesCount} images uploaded</p>
+                <p className="text-sm font-medium text-slate-900">Hero Sections</p>
+                <p className="text-xs text-slate-400">{dashboardData.heroSections || 3} hero sections configured</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <CheckCircle size={16} className="text-emerald-500" />
+              <CheckCircle size={16} className="text-amber-500" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-slate-900">Room Accommodations</p>
-                <p className="text-xs text-slate-400">{roomsCount} room types configured</p>
+                <p className="text-xs text-slate-400">{dashboardData.rooms || 3} room types available</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <CheckCircle size={16} className="text-emerald-500" />
+              <CheckCircle size={16} className="text-amber-500" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-slate-900">Service Cards</p>
-                <p className="text-xs text-slate-400">{servicesCount} services available</p>
+                <p className="text-sm font-medium text-slate-900">Signature Experiences</p>
+                <p className="text-xs text-slate-400">{dashboardData.experiences || 6} experiences available</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <CheckCircle size={16} className="text-emerald-500" />
+              <CheckCircle size={16} className="text-amber-500" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-slate-900">Guest Testimonials</p>
-                <p className="text-xs text-slate-400">{testimonialsCount} reviews published</p>
+                <p className="text-sm font-medium text-slate-900">About Page</p>
+                <p className="text-xs text-slate-400">{dashboardData.aboutSections || 5} sections</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <CheckCircle size={16} className="text-amber-500" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-900">Footer</p>
+                <p className="text-xs text-slate-400">
+                  {dashboardData.footer ? `${dashboardData.footer.hotel_name} - Configured` : "Configured"}
+                </p>
               </div>
             </div>
           </div>
@@ -320,31 +366,32 @@ export default function Dashboard() {
           <h3 className="text-lg font-semibold text-slate-900 mb-5">Quick Links</h3>
           <div className="grid grid-cols-2 gap-3">
             {quickLinks.map((link) => (
-              <button
+              <Link
                 key={link.label}
-                onClick={() => {
-                  if (link.isActive && link.link !== "#") {
-                    window.location.href = link.link;
-                  } else if (link.comingSoon) {
-                    handleComingSoon(link.label);
-                  }
-                }}
-                className="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-600 hover:bg-slate-50 hover:border-emerald-200 transition-colors text-left"
+                to={link.link}
+                className={`flex items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
+                  link.isActive
+                    ? "border-slate-200 text-slate-600 hover:bg-amber-50 hover:border-amber-200"
+                    : "border-slate-100 text-slate-400 cursor-not-allowed opacity-60"
+                }`}
               >
-                <link.icon size={16} className="text-emerald-500" />
+                <link.icon size={16} className="text-amber-500" />
                 {link.label}
-              </button>
+                {!link.isActive && (
+                  <span className="ml-auto text-[10px] text-amber-500">Soon</span>
+                )}
+              </Link>
             ))}
           </div>
         </div>
       </div>
 
       {/* Site preview link */}
-      <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-6">
+      <div className="rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm">
-              <Eye size={20} className="text-emerald-600" />
+              <Eye size={20} className="text-amber-600" />
             </div>
             <div>
               <h3 className="font-semibold text-slate-900">Preview Your Site</h3>
@@ -354,14 +401,28 @@ export default function Dashboard() {
             </div>
           </div>
           <a
-            href="https://www.mountainviewresort.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+            href="#"
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-amber-700 transition-colors"
           >
             Visit Live Site
             <ArrowRight size={14} />
           </a>
+        </div>
+      </div>
+
+      {/* Tips Section */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <div className="flex gap-3">
+          <Clock size={16} className="text-blue-500 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-blue-800">Getting Started</p>
+            <ul className="mt-1 space-y-1 text-xs text-blue-600">
+              <li>• Click on any section card to start managing content</li>
+              <li>• Configure hero sections, rooms, experiences, and more</li>
+              <li>• Upload images and update text content in real-time</li>
+              <li>• All changes will be reflected on the live website</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

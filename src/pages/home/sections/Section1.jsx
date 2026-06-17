@@ -1,139 +1,145 @@
 import { useState, useEffect } from "react";
-import { Save, RotateCcw, Check, Upload, Trash2, Image as ImageIcon, AlertCircle, Edit2 } from "lucide-react";
+import {
+  Save,
+  RotateCcw,
+  Check,
+  AlertCircle,
+  Upload,
+  Trash2,
+  Image as ImageIcon,
+} from "lucide-react";
 
-const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001/api").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
 const APP_URL = API_URL.replace(/\/api$/, "");
-const STORAGE_URL = (import.meta.env.VITE_STORAGE_URL || `${APP_URL}/storage`).replace(/\/$/, "");
+
+console.log("APP_URL:", APP_URL);
 
 const getImageUrl = (path) => {
-  if (!path || typeof path !== 'string') return null;
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  if (path.startsWith("/storage/")) return `${APP_URL}${path}`;
-  if (path.startsWith("storage/")) return `${APP_URL}/${path}`;
-  return `${STORAGE_URL}/${path}`;
-};
-
-const apiRequest = async (url, method = "GET", body = null, token = null, isFormData = false) => {
-  const options = { method, headers: { Accept: "application/json" } };
-  if (token) options.headers.Authorization = `Bearer ${token}`;
-  if (body) {
-    if (isFormData) options.body = body;
-    else {
-      options.headers["Content-Type"] = "application/json";
-      options.body = JSON.stringify(body);
+  if (!path) return null;
+  
+  console.log("Original path from API:", path);
+  
+  // Handle localhost URLs - replace with 127.0.0.1:8000
+  let cleanPath = path;
+  if (cleanPath.includes("localhost")) {
+    cleanPath = cleanPath.replace("localhost", "127.0.0.1:8000");
+    console.log("After localhost replace:", cleanPath);
+  }
+  
+  // If it's already a full URL with http/https
+  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+    // Make sure it has the correct port
+    if (cleanPath.match(/http:\/\/127\.0\.0\.1(\/|$)/)) {
+      cleanPath = cleanPath.replace("http://127.0.0.1/", "http://127.0.0.1:8000/");
     }
+    console.log("Final URL:", cleanPath);
+    return cleanPath;
   }
-  const response = await fetch(`${API_URL}${url}`, options);
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`HTTP ${response.status}: ${error}`);
+  
+  // If it's a storage path starting with /storage/
+  if (cleanPath.startsWith("/storage/")) {
+    return `${APP_URL}${cleanPath}`;
   }
-  return await response.json();
+  
+  // If it's a storage path without leading slash
+  if (cleanPath.startsWith("storage/")) {
+    return `${APP_URL}/${cleanPath}`;
+  }
+  
+  // If it's just a filename or section-one/filename
+  if (cleanPath.includes("section-one/")) {
+    return `${APP_URL}/storage/${cleanPath}`;
+  }
+  
+  // Default: assume it's a path under storage
+  return `${APP_URL}/storage/${cleanPath}`;
 };
 
-export default function Section1() {
-  const [items, setItems] = useState([]);
+const getToken = () => {
+  return localStorage.getItem("token") || localStorage.getItem("auth_token");
+};
+
+export default function Section1({ data, onSave }) {
+  const [sectionData, setSectionData] = useState({
+    id: null,
+    title: "— WELCOME",
+    subtitle: "Your Home Away from Home.",
+    description: "DANA KIGALI HOTEL is more than just a place to stay. It is a story of family, culture, hospitality, and kindness, carried from the banks of the River Nile to the beautiful land of a thousand hills (Rwanda).",
+    left_image: null,
+    left_image_preview: null,
+    left_image_file: null,
+    card1_title: "5-Star Service",
+    card1_description: "Personal concierge available around the clock.",
+    card2_title: "Pristine Setting",
+    card2_description: "Acres of forest, valley views, and silence.",
+    bottom_card_text: "25+ Years welcoming travellers from over seventy countries.",
+  });
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingIndex, setUploadingIndex] = useState(null);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
-  const [token, setToken] = useState(null);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editValue, setEditValue] = useState("");
-  const [deletedImages, setDeletedImages] = useState([]);
+  const [saved, setSaved] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token") || localStorage.getItem("auth_token");
-    if (storedToken) {
-      setToken(storedToken);
-      fetchCards();
-    } else {
-      setError("Please login first");
-      setLoading(false);
-    }
+    fetchSectionData();
   }, []);
 
-  const fetchCards = async () => {
+  const fetchSectionData = async () => {
+    setLoading(true);
     try {
-      const result = await apiRequest("/home-section1-gallery", "GET");
-      console.log("Fetched cards:", result);
-      
+      const token = getToken();
+      const response = await fetch(`${API_URL}/dana/section-one`, {
+        headers: {
+          Accept: "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+      const result = await response.json();
+      console.log("Section One API Response:", result);
+
       if (result.success && result.data && result.data.length > 0) {
-        const loadedItems = result.data.map((card) => ({
-          id: card.id,
-          title: card.title,
-          image: card.image_url,
-          imagePreview: card.image_url ? getImageUrl(card.image_url) : null,
-          imageFile: null,
-        }));
-        setItems(loadedItems);
-        setDeletedImages([]);
-      } else {
-        setItems([
-          { id: null, title: "ROOMS", image: null, imagePreview: null, imageFile: null },
-          { id: null, title: "SWIMMING POOL", image: null, imagePreview: null, imageFile: null },
-          { id: null, title: "RESTAURANT", image: null, imagePreview: null, imageFile: null },
-          { id: null, title: "STUNNING CITY & MOUNTAIN VIEW", image: null, imagePreview: null, imageFile: null },
-        ]);
+        const section = result.data[0];
+        const imageUrl = getImageUrl(section.left_image);
+        console.log("Processed image URL:", imageUrl);
+        
+        setSectionData({
+          id: section.id,
+          title: section.title || "— WELCOME",
+          subtitle: section.subtitle || "Your Home Away from Home.",
+          description: section.description || "",
+          left_image: section.left_image,
+          left_image_preview: imageUrl,
+          left_image_file: null,
+          card1_title: section.card1_title || "5-Star Service",
+          card1_description: section.card1_description || "Personal concierge available around the clock.",
+          card2_title: section.card2_title || "Pristine Setting",
+          card2_description: section.card2_description || "Acres of forest, valley views, and silence.",
+          bottom_card_text: section.bottom_card_text || "25+ Years welcoming travellers from over seventy countries.",
+        });
       }
     } catch (err) {
-      console.error("Error fetching cards:", err);
-      setError("Failed to load gallery cards");
-      setItems([
-        { id: null, title: "ROOMS", image: null, imagePreview: null, imageFile: null },
-        { id: null, title: "SWIMMING POOL", image: null, imagePreview: null, imageFile: null },
-        { id: null, title: "RESTAURANT", image: null, imagePreview: null, imageFile: null },
-        { id: null, title: "STUNNING CITY & MOUNTAIN VIEW", image: null, imagePreview: null, imageFile: null },
-      ]);
+      console.error("Error fetching section one:", err);
+      setError("Failed to load section data");
     } finally {
       setLoading(false);
     }
   };
 
-  const updateItem = (index, updates) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], ...updates };
-    setItems(newItems);
+  const updateField = (field, value) => {
+    setSectionData(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
     setSaved(false);
     setError(null);
   };
 
-  const startEditing = (index, currentTitle) => {
-    setEditingIndex(index);
-    setEditValue(currentTitle);
-  };
-
-  const saveTitle = (index) => {
-    if (editValue && editValue.trim() && editValue !== items[index]?.title) {
-      updateItem(index, { title: editValue.trim() });
-    }
-    setEditingIndex(null);
-    setEditValue("");
-  };
-
-  const cancelEditing = () => {
-    setEditingIndex(null);
-    setEditValue("");
-  };
-
-  const handleKeyPress = (e, index) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveTitle(index);
-    } else if (e.key === 'Escape') {
-      cancelEditing();
-    }
-  };
-
-  const handleImageUpload = async (index, file) => {
+  const handleImageUpload = (file) => {
     if (!file) return;
 
-    const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"];
+    const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      setError("Please select a valid image");
+      setError("Please select a valid image (JPEG, PNG, WebP)");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -141,322 +147,343 @@ export default function Section1() {
       return;
     }
 
-    setUploadingIndex(index);
-    setError(null);
-    
+    setUploading(true);
     const previewUrl = URL.createObjectURL(file);
-    updateItem(index, {
-      imagePreview: previewUrl,
-      imageFile: file,
-    });
-
-    const item = items[index];
-    
-    if (item.id) {
-      try {
-        const formData = new FormData();
-        formData.append("image", file);
-        
-        const result = await apiRequest(`/admin/home-section1-gallery/${item.id}/upload`, "POST", formData, token, true);
-        
-        if (result.success) {
-          updateItem(index, {
-            image: result.data.image_url,
-            imagePreview: getImageUrl(result.data.image_url),
-            imageFile: null,
-          });
-        } else {
-          setError("Failed to upload image");
-          updateItem(index, { imagePreview: null, imageFile: null });
-        }
-      } catch (err) {
-        console.error("Upload error:", err);
-        setError("Failed to upload image");
-        updateItem(index, { imagePreview: null, imageFile: null });
-      }
-    }
-    
-    setUploadingIndex(null);
+    setSectionData(prev => ({
+      ...prev,
+      left_image_preview: previewUrl,
+      left_image_file: file,
+    }));
+    setHasChanges(true);
+    setUploading(false);
   };
 
-  const removeImage = (index) => {
-    const item = items[index];
-    
-    if (item.imagePreview && item.imagePreview.startsWith('blob:')) {
-      URL.revokeObjectURL(item.imagePreview);
+  const removeImage = () => {
+    if (sectionData.left_image_preview?.startsWith('blob:')) {
+      URL.revokeObjectURL(sectionData.left_image_preview);
     }
-    
-    // Mark for deletion if it has an ID and has an image
-    if (item.id && item.image) {
-      setDeletedImages(prev => [...prev, item.id]);
-    }
-    
-    updateItem(index, {
-      image: null,
-      imagePreview: null,
-      imageFile: null,
-    });
-    
+    setSectionData(prev => ({
+      ...prev,
+      left_image: null,
+      left_image_preview: null,
+      left_image_file: null,
+    }));
     setHasChanges(true);
   };
 
-  const saveAllCards = async () => {
+  const saveToBackend = async () => {
     setSaving(true);
     setError(null);
 
     try {
-      // First, handle image deletions (if any)
-      if (deletedImages.length > 0) {
-        const deletePayload = { delete_images: deletedImages };
-        await apiRequest("/admin/home-section1-gallery", "POST", deletePayload, token);
+      const token = getToken();
+      if (!token) {
+        throw new Error("Please login first");
       }
-      
-      // Then save all titles
-      const cardsData = items.map((item) => ({
-        id: item.id,
-        title: item.title,
-      }));
 
-      const result = await apiRequest("/admin/home-section1-gallery", "POST", { cards: cardsData }, token);
-      
+      const formData = new FormData();
+      formData.append("title", sectionData.title);
+      formData.append("subtitle", sectionData.subtitle);
+      formData.append("description", sectionData.description);
+      formData.append("card1_title", sectionData.card1_title);
+      formData.append("card1_description", sectionData.card1_description);
+      formData.append("card2_title", sectionData.card2_title);
+      formData.append("card2_description", sectionData.card2_description);
+      formData.append("bottom_card_text", sectionData.bottom_card_text);
+
+      if (sectionData.left_image_file) {
+        formData.append("left_image", sectionData.left_image_file);
+      }
+
+      let url, method;
+      if (sectionData.id) {
+        url = `${API_URL}/dana/section-one/${sectionData.id}`;
+        method = "POST";
+        formData.append("_method", "PUT");
+      } else {
+        url = `${API_URL}/dana/section-one`;
+        method = "POST";
+      }
+
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+      console.log("Save response:", result);
+
       if (result.success) {
-        const updatedItems = items.map((item, index) => ({
-          ...item,
-          id: result.data[index]?.id || item.id,
-        }));
-        setItems(updatedItems);
-        
-        // Upload any pending images for new cards
-        for (let i = 0; i < updatedItems.length; i++) {
-          const item = updatedItems[i];
-          if (item.imageFile && item.id) {
-            const formData = new FormData();
-            formData.append("image", item.imageFile);
-            
-            await apiRequest(`/admin/home-section1-gallery/${item.id}/upload`, "POST", formData, token, true);
-            
-            // Update the item after successful upload
-            updatedItems[i] = {
-              ...updatedItems[i],
-              imageFile: null,
-            };
-          }
-        }
-        
-        setItems(updatedItems);
-        setDeletedImages([]);
         setHasChanges(false);
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
-        await fetchCards();
+        await fetchSectionData();
+        if (onSave) {
+          onSave(result.data);
+        }
+      } else {
+        setError(result.message || "Error saving section");
       }
     } catch (err) {
       console.error("Save error:", err);
-      setError("Failed to save changes: " + err.message);
+      setError(err.message || "Failed to save section");
     } finally {
       setSaving(false);
     }
   };
 
   const handleReset = () => {
-    fetchCards();
-    setHasChanges(false);
+    fetchSectionData();
     setError(null);
-    setEditingIndex(null);
-    setEditValue("");
-    setDeletedImages([]);
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!token) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
-          <h2 className="text-xl font-semibold text-slate-900">Authentication Required</h2>
-          <p className="mt-2 text-slate-500">Please login to manage gallery cards.</p>
-        </div>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+      {/* Header */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Section 1 - Gallery Cards</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage the 4 gallery cards with images and titles</p>
+            <h2 className="text-xl font-bold text-gray-900">Section 1 - Welcome to Dana</h2>
+            <p className="text-sm text-gray-500">Edit the welcome section with left image and two cards</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex gap-3">
             {saved && (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                <Check size={16} />
-                Saved successfully
+              <span className="flex items-center gap-1.5 text-sm font-medium text-amber-600">
+                <Check size={16} /> Saved
               </span>
             )}
             <button
               onClick={handleReset}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-gray-50"
             >
-              <RotateCcw size={15} />
-              Reset
+              <RotateCcw size={15} /> Reset
             </button>
             <button
-              onClick={saveAllCards}
+              onClick={saveToBackend}
               disabled={!hasChanges || saving}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all ${
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all ${
                 hasChanges && !saving
-                  ? "bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-sm hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.98]"
-                  : "cursor-not-allowed bg-slate-300"
+                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+                  : "cursor-not-allowed bg-gray-300"
               }`}
             >
               {saving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Save size={15} />}
-              Save Changes
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2">
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex items-center gap-2">
           <AlertCircle size={16} /> {error}
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-5 text-lg font-semibold text-slate-900">Gallery Cards (4 Items)</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {items.map((item, index) => (
-            <div key={item.id || index} className="border rounded-xl overflow-hidden bg-gray-50">
-              <div className="relative h-48 bg-gray-100">
-                {item.imagePreview ? (
-                  <>
-                    <img
-                      src={item.imagePreview}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition"
-                      type="button"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    {deletedImages.includes(item.id) && (
-                      <div className="absolute bottom-2 left-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded">
-                        Will be deleted
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ImageIcon size={48} className="text-gray-300" />
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4">
-                <div className="mb-3">
-                  {editingIndex === index ? (
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={() => saveTitle(index)}
-                      onKeyDown={(e) => handleKeyPress(e, index)}
-                      className="w-full font-bold text-slate-900 border rounded-lg px-2 py-1 text-sm focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none"
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-bold text-slate-900 break-words flex-1">{item.title}</h3>
-                      <button
-                        onClick={() => startEditing(index, item.title)}
-                        className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-100 px-2 py-1 text-emerald-600 hover:bg-emerald-200 transition text-xs font-medium"
-                        type="button"
-                      >
-                        <Edit2 size={12} />
-                        Edit
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                <label className="cursor-pointer block w-full">
-                  <div className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    item.imagePreview
-                      ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      : "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700"
-                  }`}>
-                    {uploadingIndex === index ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    ) : (
-                      <Upload size={14} />
-                    )}
-                    {item.imagePreview ? "Change Image" : "Upload Image"}
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(index, e.target.files[0])}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500 mt-4 text-center">
-          Click "Edit" to change titles. Upload images. Click trash icon then Save Changes to permanently delete an image.
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-5 text-lg font-semibold text-slate-900">Live Preview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {items.map((item, index) => (
-            <div key={item.id || index} className="group relative overflow-hidden rounded-xl shadow-lg">
-              {item.imagePreview ? (
-                <>
-                  <img
-                    src={item.imagePreview}
-                    alt={item.title}
-                    className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <h3 className="text-white font-bold text-lg text-center">{item.title}</h3>
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-64 bg-gray-200 flex items-center justify-center rounded-xl">
-                  <p className="text-gray-400 text-center p-4">{item.title}</p>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-        <div className="flex items-start gap-3">
-          <AlertCircle size={16} className="mt-0.5 shrink-0 text-blue-500" />
+      {/* Title and Subtitle */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="text-sm font-medium text-blue-800">How to delete images:</p>
-            <ul className="mt-1 space-y-1 text-xs text-blue-600">
-              <li>• Click the trash icon on any card image</li>
-              <li>• The image will show "Will be deleted" badge</li>
-              <li>• Click "Save Changes" to permanently delete the image</li>
-              <li>• After saving, refresh the page to confirm deletion</li>
+            <label className="mb-1 block text-sm font-medium">Section Title</label>
+            <input
+              type="text"
+              value={sectionData.title}
+              onChange={(e) => updateField("title", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Section Subtitle</label>
+            <input
+              type="text"
+              value={sectionData.subtitle}
+              onChange={(e) => updateField("subtitle", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className="mb-1 block text-sm font-medium">Description</label>
+          <textarea
+            value={sectionData.description}
+            onChange={(e) => updateField("description", e.target.value)}
+            rows={6}
+            className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold">Cards</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="border rounded-lg p-4">
+            <label className="mb-1 block text-sm font-medium">Card 1 Title</label>
+            <input
+              type="text"
+              value={sectionData.card1_title}
+              onChange={(e) => updateField("card1_title", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 mb-3 focus:border-amber-400 focus:outline-none"
+            />
+            <label className="mb-1 block text-sm font-medium">Card 1 Description</label>
+            <textarea
+              value={sectionData.card1_description}
+              onChange={(e) => updateField("card1_description", e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+            />
+          </div>
+          <div className="border rounded-lg p-4">
+            <label className="mb-1 block text-sm font-medium">Card 2 Title</label>
+            <input
+              type="text"
+              value={sectionData.card2_title}
+              onChange={(e) => updateField("card2_title", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 mb-3 focus:border-amber-400 focus:outline-none"
+            />
+            <label className="mb-1 block text-sm font-medium">Card 2 Description</label>
+            <textarea
+              value={sectionData.card2_description}
+              onChange={(e) => updateField("card2_description", e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className="mb-1 block text-sm font-medium">Bottom Card Text</label>
+          <input
+            type="text"
+            value={sectionData.bottom_card_text}
+            onChange={(e) => updateField("bottom_card_text", e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      {/* Left Image Upload */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold">Left Image</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="rounded-xl border bg-gray-50 p-4">
+            {sectionData.left_image_preview ? (
+              <div className="relative">
+                <img
+                  src={sectionData.left_image_preview}
+                  alt="Left preview"
+                  className="h-64 w-full rounded-lg object-cover"
+                  onError={(e) => {
+                    console.error("Image failed to load:", sectionData.left_image_preview);
+                    e.target.src = "https://placehold.co/600x400?text=Image+Not+Found";
+                  }}
+                />
+                <button
+                  onClick={removeImage}
+                  className="absolute top-2 right-2 rounded-full bg-red-500 p-1.5 text-white hover:bg-red-600 transition"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex h-64 w-full items-center justify-center rounded-lg bg-gray-100">
+                <ImageIcon size={48} className="text-gray-300" />
+              </div>
+            )}
+            <label className="mt-3 block cursor-pointer">
+              <div className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-sm font-medium text-white hover:from-amber-600 hover:to-amber-700 transition">
+                {uploading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Upload size={14} />}
+                {uploading ? "Uploading..." : (sectionData.left_image_preview ? "Change Image" : "Upload Image")}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageUpload(e.target.files[0])}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          <div className="rounded-xl bg-gray-100 p-4 flex items-center justify-center">
+            {sectionData.left_image_preview ? (
+              <img
+                src={sectionData.left_image_preview}
+                alt="Context preview"
+                className="max-h-64 rounded-lg shadow"
+                onError={(e) => {
+                  e.target.src = "https://placehold.co/600x400?text=Image+Not+Found";
+                }}
+              />
+            ) : (
+              <p className="text-gray-400">Image preview will appear here</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Live Preview */}
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold">Live Preview</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="rounded-xl overflow-hidden">
+            {sectionData.left_image_preview ? (
+              <img
+                src={sectionData.left_image_preview}
+                alt="Preview"
+                className="w-full h-96 object-cover"
+                onError={(e) => {
+                  e.target.src = "https://placehold.co/600x800?text=Image+Not+Found";
+                }}
+              />
+            ) : (
+              <div className="w-full h-96 bg-gray-200 flex items-center justify-center">
+                <ImageIcon size={64} className="text-gray-400" />
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-gray-900">{sectionData.title}</h2>
+            <p className="text-xl text-amber-600">{sectionData.subtitle}</p>
+            <p className="text-gray-600 leading-relaxed">{sectionData.description}</p>
+            <div className="grid grid-cols-2 gap-4 pt-4">
+              <div className="bg-amber-50 p-4 rounded-xl">
+                <h4 className="font-bold text-amber-800">{sectionData.card1_title}</h4>
+                <p className="text-sm text-gray-600 mt-1">{sectionData.card1_description}</p>
+              </div>
+              <div className="bg-amber-50 p-4 rounded-xl">
+                <h4 className="font-bold text-amber-800">{sectionData.card2_title}</h4>
+                <p className="text-sm text-gray-600 mt-1">{sectionData.card2_description}</p>
+              </div>
+            </div>
+            <div className="bg-amber-100 p-4 rounded-xl text-center">
+              <p className="font-semibold text-amber-800">{sectionData.bottom_card_text}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tips */}
+      <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+        <div className="flex gap-3">
+          <AlertCircle size={16} className="text-amber-600" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Tips</p>
+            <ul className="mt-1 space-y-1 text-xs text-amber-600">
+              <li>• Upload a high-quality image for the left side</li>
+              <li>• Edit any text field by clicking and typing</li>
+              <li>• Click "Save Changes" to store everything in the database</li>
+              <li>• The preview shows how it will look on the website</li>
             </ul>
           </div>
         </div>

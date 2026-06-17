@@ -12,66 +12,38 @@ import {
 const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
 const APP_URL = API_URL.replace(/\/api$/, "");
 
-// Fixed getImageUrl function
 const getImageUrl = (path) => {
   if (!path) return null;
-  
-  console.log("Original path from API:", path);
-  
-  // If it's already a full URL
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    let url = path;
-    // Replace localhost with 127.0.0.1
-    if (url.includes("localhost")) {
-      url = url.replace("localhost", "127.0.0.1");
+  let cleanPath = path;
+  if (cleanPath.includes("localhost")) {
+    cleanPath = cleanPath.replace("localhost", "127.0.0.1:8000");
+  }
+  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+    if (cleanPath.match(/http:\/\/127\.0\.0\.1(\/|$)/)) {
+      cleanPath = cleanPath.replace("http://127.0.0.1/", "http://127.0.0.1:8000/");
     }
-    // Add port 8000 if missing
-    if (url.match(/http:\/\/127\.0\.0\.1\//)) {
-      url = url.replace("http://127.0.0.1/", "http://127.0.0.1:8000/");
-    }
-    console.log("Full URL from path:", url);
-    return url;
+    return cleanPath;
   }
-  
-  // If it's just the filename or hero/filename
-  if (path.startsWith("hero/")) {
-    const fullUrl = `${APP_URL}/storage/${path}`;
-    console.log("Storage URL:", fullUrl);
-    return fullUrl;
-  }
-  
-  // If it's a storage path
-  if (path.startsWith("/storage/")) {
-    return `${APP_URL}${path}`;
-  }
-  
-  if (path.startsWith("storage/")) {
-    return `${APP_URL}/${path}`;
-  }
-  
-  // Default
-  const defaultUrl = `${APP_URL}/storage/${path}`;
-  console.log("Default URL:", defaultUrl);
-  return defaultUrl;
+  if (cleanPath.startsWith("/storage/")) return `${APP_URL}${cleanPath}`;
+  if (cleanPath.startsWith("storage/")) return `${APP_URL}/${cleanPath}`;
+  return `${APP_URL}/storage/${cleanPath}`;
 };
 
 const getToken = () => {
   return localStorage.getItem("token") || localStorage.getItem("auth_token");
 };
 
-export default function HeroSection({ data, onSave }) {
+export default function AboutHeroSection() {
   const [sectionData, setSectionData] = useState({
     id: null,
-    title: "Welcome home",
-    subtitle: "A Home Away From Home.",
-    description: "DANA KIGALI HOTEL welcomes you to Kigali, Rwanda — where the warmth of African hospitality and the spirit of Dana meet the comfort of home.",
-    button_text: "Reserve A stay",
-    secondary_text: "discover",
+    title: "— OUR STORY",
+    subtitle: "About DANA KIGALI HOTEL",
+    destination: "Home/About",
     background_image: null,
     background_image_preview: null,
     background_image_file: null,
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -87,44 +59,47 @@ export default function HeroSection({ data, onSave }) {
     setLoading(true);
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/dana/hero`, {
+      const response = await fetch(`${API_URL}/dana/about/hero`, {
         headers: {
           Accept: "application/json",
           ...(token && { Authorization: `Bearer ${token}` }),
         },
       });
       const result = await response.json();
-      console.log("API Response:", result);
-      
+      console.log("About Hero API Response:", result);
+
       if (result.success && result.data && result.data.length > 0) {
         const hero = result.data[0];
         const imageUrl = getImageUrl(hero.background_image);
         
         setSectionData({
           id: hero.id,
-          title: hero.title || "Welcome home",
-          subtitle: hero.subtitle || "A Home Away From Home.",
-          description: hero.description || "",
-          button_text: hero.button_text || "Reserve A stay",
-          secondary_text: hero.secondary_text || "discover",
+          title: hero.title || "— OUR STORY",
+          subtitle: hero.subtitle || "About DANA KIGALI HOTEL",
+          destination: hero.destination || "Home/About",
           background_image: hero.background_image,
           background_image_preview: imageUrl,
           background_image_file: null,
         });
+        setHasChanges(false);
       }
     } catch (err) {
-      console.error("Error fetching hero:", err);
+      console.error("Error fetching about hero:", err);
       setError("Failed to load hero data");
     } finally {
       setLoading(false);
     }
   };
 
-  const updateField = (field, value) => {
-    setSectionData(prev => ({ ...prev, [field]: value }));
+  const markChanges = () => {
     setHasChanges(true);
     setSaved(false);
     setError(null);
+  };
+
+  const updateField = (field, value) => {
+    setSectionData(prev => ({ ...prev, [field]: value }));
+    markChanges();
   };
 
   const handleImageUpload = (file) => {
@@ -147,7 +122,7 @@ export default function HeroSection({ data, onSave }) {
       background_image_preview: previewUrl,
       background_image_file: file,
     }));
-    setHasChanges(true);
+    markChanges();
     setUploading(false);
   };
 
@@ -161,15 +136,10 @@ export default function HeroSection({ data, onSave }) {
       background_image_preview: null,
       background_image_file: null,
     }));
-    setHasChanges(true);
+    markChanges();
   };
 
   const saveToBackend = async () => {
-    if (!sectionData.title) {
-      setError("Title is required");
-      return;
-    }
-
     setSaving(true);
     setError(null);
 
@@ -182,9 +152,7 @@ export default function HeroSection({ data, onSave }) {
       const formData = new FormData();
       formData.append("title", sectionData.title);
       formData.append("subtitle", sectionData.subtitle);
-      formData.append("description", sectionData.description);
-      formData.append("button_text", sectionData.button_text);
-      formData.append("secondary_text", sectionData.secondary_text);
+      formData.append("destination", sectionData.destination);
 
       if (sectionData.background_image_file) {
         formData.append("background_image", sectionData.background_image_file);
@@ -192,11 +160,11 @@ export default function HeroSection({ data, onSave }) {
 
       let url, method;
       if (sectionData.id) {
-        url = `${API_URL}/dana/hero/${sectionData.id}`;
+        url = `${API_URL}/dana/about/hero/${sectionData.id}`;
         method = "POST";
         formData.append("_method", "PUT");
       } else {
-        url = `${API_URL}/dana/hero`;
+        url = `${API_URL}/dana/about/hero`;
         method = "POST";
       }
 
@@ -212,20 +180,26 @@ export default function HeroSection({ data, onSave }) {
       const result = await response.json();
       console.log("Save response:", result);
 
+      if (!response.ok) {
+        if (result.errors) {
+          setError(JSON.stringify(result.errors, null, 2));
+        } else {
+          setError(result.message || "Error saving hero");
+        }
+        return;
+      }
+
       if (result.success) {
         setHasChanges(false);
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
         await fetchHeroData();
-        if (onSave) {
-          onSave(result.data);
-        }
       } else {
-        setError(result.message || "Error saving hero section");
+        setError(result.message || "Error saving hero");
       }
     } catch (err) {
       console.error("Save error:", err);
-      setError(err.message || "Failed to save hero section");
+      setError(err.message || "Failed to save hero");
     } finally {
       setSaving(false);
     }
@@ -233,6 +207,7 @@ export default function HeroSection({ data, onSave }) {
 
   const handleReset = () => {
     fetchHeroData();
+    setError(null);
   };
 
   if (loading) {
@@ -249,8 +224,8 @@ export default function HeroSection({ data, onSave }) {
       <div className="rounded-2xl border bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Hero Section</h2>
-            <p className="text-sm text-gray-500">Edit the main hero banner content for DANA HOTEL</p>
+            <h2 className="text-xl font-bold text-gray-900">About Hero Section</h2>
+            <p className="text-sm text-gray-500">Edit the about page hero banner content</p>
           </div>
           <div className="flex gap-3">
             {saved && (
@@ -269,7 +244,7 @@ export default function HeroSection({ data, onSave }) {
               disabled={!hasChanges || saving}
               className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all ${
                 hasChanges && !saving
-                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
+                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 cursor-pointer"
                   : "cursor-not-allowed bg-gray-300"
               }`}
             >
@@ -281,22 +256,21 @@ export default function HeroSection({ data, onSave }) {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 flex items-center gap-2">
-          <AlertCircle size={16} /> {error}
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 whitespace-pre-wrap">
+          <AlertCircle size={16} className="inline mr-2" /> {error}
         </div>
       )}
 
-      {/* Form and Preview */}
+      {/* Form */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Form */}
         <div className="space-y-4 rounded-2xl border bg-white p-6 shadow-sm">
           <div>
-            <label className="mb-1 block text-sm font-medium">Title *</label>
+            <label className="mb-1 block text-sm font-medium">Title</label>
             <input
               type="text"
               value={sectionData.title}
               onChange={(e) => updateField("title", e.target.value)}
-              className="w-full rounded-xl border px-4 py-2.5 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
             />
           </div>
 
@@ -306,39 +280,19 @@ export default function HeroSection({ data, onSave }) {
               type="text"
               value={sectionData.subtitle}
               onChange={(e) => updateField("subtitle", e.target.value)}
-              className="w-full rounded-xl border px-4 py-2.5 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Description</label>
-            <textarea
-              value={sectionData.description}
-              onChange={(e) => updateField("description", e.target.value)}
-              rows={4}
-              className="w-full rounded-xl border px-4 py-2.5 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 resize-y"
+            <label className="mb-1 block text-sm font-medium">Destination (Breadcrumb)</label>
+            <input
+              type="text"
+              value={sectionData.destination}
+              onChange={(e) => updateField("destination", e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 focus:border-amber-400 focus:outline-none"
+              placeholder="Home/About"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium">Button Text</label>
-              <input
-                type="text"
-                value={sectionData.button_text}
-                onChange={(e) => updateField("button_text", e.target.value)}
-                className="w-full rounded-xl border px-4 py-2.5 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">Secondary Text</label>
-              <input
-                type="text"
-                value={sectionData.secondary_text}
-                onChange={(e) => updateField("secondary_text", e.target.value)}
-                className="w-full rounded-xl border px-4 py-2.5 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-              />
-            </div>
           </div>
         </div>
 
@@ -352,10 +306,6 @@ export default function HeroSection({ data, onSave }) {
                   src={sectionData.background_image_preview}
                   alt="Preview"
                   className="h-48 w-full rounded-lg object-cover"
-                  onError={(e) => {
-                    console.error("Image failed to load:", sectionData.background_image_preview);
-                    e.target.src = "https://placehold.co/800x400?text=Image+Not+Found";
-                  }}
                 />
                 <button
                   onClick={removeImage}
@@ -381,39 +331,41 @@ export default function HeroSection({ data, onSave }) {
                 className="hidden"
               />
             </label>
-            <p className="mt-3 text-xs text-gray-500">Recommended: 1920x800px. Max 5MB.</p>
           </div>
         </div>
       </div>
 
       {/* Live Preview */}
       <div className="rounded-2xl border bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Live Preview</h3>
-        <div className="relative h-96 overflow-hidden rounded-xl bg-gradient-to-r from-gray-800 to-gray-900">
+        <h3 className="mb-4 text-lg font-semibold">Live Preview</h3>
+        <div className="relative h-64 overflow-hidden rounded-xl bg-gradient-to-r from-gray-800 to-gray-900">
           {sectionData.background_image_preview && (
             <img
               src={sectionData.background_image_preview}
               className="absolute inset-0 h-full w-full object-cover"
               alt="Preview"
-              onError={(e) => {
-                console.error("Preview image failed to load");
-                e.target.style.display = "none";
-              }}
             />
           )}
           <div className="absolute inset-0 bg-black/50" />
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white">
-            <h2 className="text-5xl font-bold mb-4">{sectionData.title}</h2>
-            <p className="text-xl mb-2">{sectionData.subtitle}</p>
-            <p className="max-w-2xl text-white/80 mb-8">{sectionData.description}</p>
-            <div className="flex gap-4">
-              <button className="rounded-lg bg-amber-500 px-6 py-3 font-semibold hover:bg-amber-600 transition">
-                {sectionData.button_text}
-              </button>
-              <button className="rounded-lg border px-6 py-3 font-semibold hover:bg-white/10 transition">
-                {sectionData.secondary_text}
-              </button>
-            </div>
+            <h2 className="text-4xl font-bold mb-2">{sectionData.title}</h2>
+            <p className="text-xl mb-4">{sectionData.subtitle}</p>
+            <p className="text-amber-300">{sectionData.destination}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tips */}
+      <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+        <div className="flex gap-3">
+          <AlertCircle size={16} className="text-amber-600" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Tips</p>
+            <ul className="mt-1 space-y-1 text-xs text-amber-600">
+              <li>• Upload a high-quality background image (1920x800px recommended)</li>
+              <li>• Edit title, subtitle, and destination breadcrumb</li>
+              <li>• Click "Save Changes" to store everything in the database</li>
+            </ul>
           </div>
         </div>
       </div>
