@@ -1,10 +1,8 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Eye, EyeOff, Loader2, Hotel } from "lucide-react";
 
-// Use environment variable for API URL
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
 
 export default function Login() {
   const [login, setLogin] = useState("");
@@ -12,21 +10,23 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
   const navigate = useNavigate();
+
+  // If already logged in, redirect to admin
+  useEffect(() => {
+    const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+    if (token) {
+      navigate("/admin", { replace: true });
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    console.log("=== FORM SUBMITTED ===");
-    console.log("Email:", login);
-    console.log("API URL:", `${API_BASE_URL}/dana/login`);
-    
     setError("");
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/dana/login`, {
+      const response = await fetch(`${API_URL}/dana/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -38,10 +38,7 @@ export default function Login() {
         }),
       });
       
-      console.log("Response status:", response.status);
-      
       const data = await response.json();
-      console.log("Response data:", data);
 
       if (!response.ok) {
         throw new Error(data.message || data.error || "Invalid login credentials.");
@@ -53,15 +50,15 @@ export default function Login() {
         throw new Error("Login successful, but token was not returned.");
       }
 
+      // Store token
       localStorage.setItem("token", token);
       localStorage.setItem("auth_token", token);
-      localStorage.setItem("authToken", token);
       
+      // Store user data
       if (data.data?.user) {
         localStorage.setItem("user", JSON.stringify(data.data.user));
       }
 
-      console.log("Login successful, redirecting to admin...");
       navigate("/admin", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
@@ -73,7 +70,6 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-amber-900 via-amber-800 to-amber-900 p-4">
-      {/* Decorative background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-amber-500/20 blur-3xl" />
         <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-amber-600/20 blur-3xl" />
@@ -81,7 +77,6 @@ export default function Login() {
       </div>
 
       <div className="relative w-full max-w-md">
-        {/* Logo and Title */}
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-700 shadow-lg shadow-amber-500/30">
             <Hotel size={32} className="text-white" />
@@ -95,7 +90,6 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Login Form */}
         <div className="rounded-2xl border border-amber-500/20 bg-amber-900/40 backdrop-blur-xl p-8 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
@@ -160,7 +154,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Footer Note */}
         <p className="mt-6 text-center text-xs text-amber-500/50">
           DANA KIGALI HOTEL — A welcoming home in Kigali, Rwanda
         </p>

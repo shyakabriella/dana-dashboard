@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
+
 const navItems = [
   {
     to: "/admin",
@@ -49,13 +51,44 @@ const navItems = [
 
 export default function Layouts() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("authToken");
-    navigate("/login");
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("auth_token");
+      
+      // Call logout API if token exists
+      if (token) {
+        await fetch(`${API_URL}/dana/logout`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Logout API error:", error);
+    } finally {
+      // Clear ALL localStorage items
+      localStorage.removeItem("token");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("user");
+      localStorage.removeItem("admin");
+      localStorage.removeItem("auth");
+      
+      // Clear sessionStorage if used
+      sessionStorage.clear();
+      
+      setLoggingOut(false);
+      
+      // Redirect to login page
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
@@ -89,7 +122,6 @@ export default function Layouts() {
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-sm font-black text-white shadow-lg shadow-amber-500/30 transition-transform duration-300 group-hover:scale-105">
               DH
             </div>
-
             <div>
               <h1 className="text-sm font-bold leading-tight text-white">
                 DANA HOTEL
@@ -128,12 +160,17 @@ export default function Layouts() {
           <button
             type="button"
             onClick={handleLogout}
-            className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-red-500/10 hover:text-red-300"
+            disabled={loggingOut}
+            className="group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold text-slate-300 transition-all duration-300 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-slate-400 transition-all duration-300 group-hover:bg-red-500/10 group-hover:text-red-300">
-              <LogOut size={18} />
+              {loggingOut ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <LogOut size={18} />
+              )}
             </span>
-            Sign Out
+            {loggingOut ? "Signing out..." : "Sign Out"}
           </button>
         </div>
       </aside>
